@@ -1,0 +1,420 @@
+Content-type: text/html
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of pca_lookup_file</TITLE>
+</HEAD><BODY>
+<H1>pca_lookup_file</H1>
+Section: C Library Functions (3)<BR><A HREF="#index">Index</A>
+<A HREF="index.html">Return to Main Contents</A><HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+pca_lookup_file, del_PathCache, del_PcaPathConf, new_PathCache, new_PcaPathConf, pca_last_error, pca_path_completions, pca_scan_path, pca_set_check_fn, ppc_file_start, ppc_literal_escapes - lookup a file in a list of directories
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<PRE>
+#include &lt;<A HREF="file:///usr/include/libtecla.h">libtecla.h</A>&gt;
+
+PathCache *new_PathCache(void);
+
+PathCache *del_PathCache(PathCache *pc);
+
+int pca_scan_path(PathCache *pc, const char *path);
+
+void pca_set_check_fn(PathCache *pc, CplCheckFn *check_fn,
+                      void *data);
+
+char *pca_lookup_file(PathCache *pc, const char *name,
+                      int name_len, int literal);
+
+const char *pca_last_error(PathCache *pc);
+
+CPL_MATCH_FN(pca_path_completions);
+
+</PRE>
+
+<P>
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+The <B>PathCache</B> object is part of the tecla library (see the
+<A HREF="libtecla.html">libtecla</A>(3) man page).
+<P>
+<B>PathCache</B> objects allow an application to search for files in
+any colon separated list of directories, such as the unix execution
+PATH environment variable. Files in absolute directories are cached in
+a <B>PathCache</B> object, whereas relative directories are scanned as
+needed. Using a <B>PathCache</B> object, you can look up the full
+pathname of a simple filename, or you can obtain a list of the
+possible completions of a given filename prefix. By default all files
+in the list of directories are targets for lookup and completion, but
+a versatile mechanism is provided for only selecting specific types of
+files. The obvious application of this facility is to provide
+Tab-completion and lookup of executable commands in the unix PATH, so
+an optional callback which rejects all but executable files, is
+provided.
+<P>
+<A NAME="lbAE">&nbsp;</A>
+<H2>AN EXAMPLE</H2>
+
+<P>
+Under UNIX, the following example program looks up and displays the
+full pathnames of each of the command names on the command line.
+<P>
+<PRE>
+  #include &lt;<A HREF="file:///usr/include/stdio.h">stdio.h</A>&gt;
+  #include &lt;<A HREF="file:///usr/include/stdlib.h">stdlib.h</A>&gt;
+  #include &lt;<A HREF="file:///usr/include/libtecla.h">libtecla.h</A>&gt;
+
+  int main(int argc, char *argv[])
+  {
+    int i;
+  /*
+   * Create a cache for executable files.
+   */
+    PathCache *pc = new_PathCache();
+    if(!pc)
+      <A HREF="exit.html">exit</A>(1);
+  /*
+   * Scan the user's PATH for executables.
+   */
+    if(pca_scan_path(pc, getenv(&quot;PATH&quot;))) {
+      fprintf(stderr, &quot;%s\n&quot;, pca_last_error(pc));
+      <A HREF="exit.html">exit</A>(1);
+    }
+  /*
+   * Arrange to only report executable files.
+   */
+   pca_set_check_fn(pc, cpl_check_exe, NULL);
+  /*
+   * Lookup and display the full pathname of each of the
+   * commands listed on the command line.
+   */
+    for(i=1; i&lt;argc; i++) {
+      char *cmd = pca_lookup_file(pc, argv[i], -1, 0);
+      printf(&quot;The full pathname of '%s' is %s\n&quot;, argv[i],
+             cmd ? cmd : &quot;unknown&quot;);
+    }
+    pc = del_PathCache(pc);  /* Clean up */
+    return 0;
+  }
+</PRE>
+
+<P>
+The following is an example of what this does on my laptop under
+linux:
+<P>
+<PRE>
+  $ ./example less more blob
+  The full pathname of 'less' is /usr/bin/less
+  The full pathname of 'more' is /bin/more
+  The full pathname of 'blob' is unknown
+  $ 
+</PRE>
+
+<P>
+<A NAME="lbAF">&nbsp;</A>
+<H2>FUNCTION DESCRIPTIONS</H2>
+
+<P>
+In order to use the facilities of this module, you must first allocate
+a <B>PathCache</B> object by calling the <B>new_PathCache()</B>
+constructor function.
+<P>
+<PRE>
+  PathCache *new_PathCache(void)
+</PRE>
+
+<P>
+This function creates the resources needed to cache and lookup files
+in a list of directories. It returns <B>NULL</B> on error.
+<P>
+<A NAME="lbAG">&nbsp;</A>
+<H2>POPULATING THE CACHE</H2>
+
+Once you have created a cache, it needs to be populated with files.
+To do this, call the <B>pca_scan_path()</B> function.
+<P>
+<PRE>
+  int pca_scan_path(PathCache *pc, const char *path);
+</PRE>
+
+<P>
+Whenever this function is called, it discards the current contents of
+the cache, then scans the list of directories specified in its
+<B>path</B> argument for files. The <B>path</B> argument must be a
+string containing a colon-separated list of directories, such as
+<B>&quot;/usr/bin:/home/mcs/bin:.&quot;</B>. This can include directories
+specified by absolute pathnames such as <B>&quot;/usr/bin&quot;</B>, as well as
+sub-directories specified by relative pathnames such as <B>&quot;.&quot;</B> or
+<B>&quot;bin&quot;</B>. Files in the absolute directories are immediately cached
+in the specified <B>PathCache</B> object, whereas sub-directories,
+whose identities obviously change whenever the current working
+directory is changed, are marked to be scanned on the fly whenever a
+file is looked up.
+<P>
+On success this function return <B>0</B>. On error it returns <B>1</B>,
+and a description of the error can be obtained by calling
+<B>pca_last_error(pc)</B>.
+<P>
+<A NAME="lbAH">&nbsp;</A>
+<H2>LOOKING UP FILES</H2>
+
+<P>
+Once the cache has been populated with files, you can look up the full
+pathname of a file, simply by specifying its filename to
+<B>pca_lookup_file()</B>.
+<P>
+<PRE>
+  char *pca_lookup_file(PathCache *pc, const char *name,
+                        int name_len, int literal);
+</PRE>
+
+<P>
+To make it possible to pass this function a filename which is actually
+part of a longer string, the <B>name_len</B> argument can be used to
+specify the length of the filename at the start of the <B>name[]</B>
+argument. If you pass <B>-1</B> for this length, the length of the
+string will be determined with <B>strlen()</B>. If the <B>name[]</B>
+string might contain backslashes that escape the special meanings of
+spaces and tabs within the filename, give the <B>literal</B> argument,
+the value <B>0</B>. Otherwise, if backslashes should be treated as
+normal characters, pass <B>1</B> for the value of the <B>literal</B>
+argument.
+<P>
+<A NAME="lbAI">&nbsp;</A>
+<H2>FILENAME COMPLETION</H2>
+
+<P>
+Looking up the potential completions of a filename-prefix in the
+filename cache, is achieved by passing the provided
+<B>pca_path_completions()</B> callback function to the
+<B>cpl_complete_word()</B> function (see the <B><A HREF="cpl_complete_word.html">cpl_complete_word</A>(3)</B>
+man page).
+<P>
+<PRE>
+  CPL_MATCH_FN(pca_path_completions);
+</PRE>
+
+<P>
+This callback requires that its <B>data</B> argument be a pointer to a
+<B>PcaPathConf</B> object. Configuration objects of this type are
+allocated by calling <B>new_PcaPathConf()</B>.
+<P>
+<PRE>
+  PcaPathConf *new_PcaPathConf(PathCache *pc);
+</PRE>
+
+<P>
+This function returns an object initialized with default configuration
+parameters, which determine how the <B>cpl_path_completions()</B>
+callback function behaves. The functions which allow you to
+individually change these parameters are discussed below.
+<P>
+By default, the <B>pca_path_completions()</B> callback function
+searches backwards for the start of the filename being completed,
+looking for the first un-escaped space or the start of the input
+line. If you wish to specify a different location, call
+<B>ppc_file_start()</B> with the index at which the filename starts in
+the input line. Passing <B>start_index=-1</B> re-enables the default
+behavior.
+<P>
+<PRE>
+  void ppc_file_start(PcaPathConf *ppc, int start_index);
+</PRE>
+
+<P>
+By default, when <B>pca_path_completions()</B> looks at a filename in
+the input line, each lone backslash in the input line is interpreted
+as being a special character which removes any special significance of
+the character which follows it, such as a space which should be taken
+as part of the filename rather than delimiting the start of the
+filename. These backslashes are thus ignored while looking for
+completions, and subsequently added before spaces, tabs and literal
+backslashes in the list of completions. To have unescaped backslashes
+treated as normal characters, call <B>ppc_literal_escapes()</B> with a
+non-zero value in its <B>literal</B> argument.
+<P>
+<PRE>
+  void ppc_literal_escapes(PcaPathConf *ppc, int literal);
+</PRE>
+
+<P>
+When you have finished with a <B>PcaPathConf</B> variable, you can pass
+it to the <B>del_PcaPathConf()</B> destructor function to reclaim its
+memory.
+<P>
+<PRE>
+  PcaPathConf *del_PcaPathConf(PcaPathConf *ppc);
+</PRE>
+
+<P>
+<P>
+<A NAME="lbAJ">&nbsp;</A>
+<H2>BEING SELECTIVE</H2>
+
+If you are only interested in certain types or files, such as, for
+example, executable files, or files whose names end in a particular
+suffix, you can arrange for the file completion and lookup functions
+to be selective in the filenames that they return.  This is done by
+registering a callback function with your <B>PathCache</B>
+object. Thereafter, whenever a filename is found which either matches
+a filename being looked up, or matches a prefix which is being
+completed, your callback function will be called with the full
+pathname of the file, plus any application-specific data that you
+provide, and if the callback returns <B>1</B> the filename will be
+reported as a match, and if it returns <B>0</B>, it will be ignored.
+Suitable callback functions and their prototypes should be declared
+with the following macro. The <B>CplCheckFn</B> <B>typedef</B> is also
+provided in case you wish to declare pointers to such functions.
+<P>
+<PRE>
+  #define CPL_CHECK_FN(fn) int (fn)(void *data, \
+                                    const char *pathname)
+  typedef CPL_CHECK_FN(CplCheckFn);
+</PRE>
+
+<P>
+Registering one of these functions involves calling the
+<B>pca_set_check_fn()</B> function. In addition to the callback
+function, passed via the <B>check_fn</B> argument, you can pass a
+pointer to anything via the <B>data</B> argument. This pointer will be
+passed on to your callback function, via its own <B>data</B> argument,
+whenever it is called, so this provides a way to pass appplication
+specific data to your callback.
+<P>
+<PRE>
+  void pca_set_check_fn(PathCache *pc, CplCheckFn *check_fn,
+                        void *data);
+</PRE>
+
+<P>
+Note that these callbacks are passed the full pathname of each
+matching file, so the decision about whether a file is of interest can
+be based on any property of the file, not just its filename. As an
+example, the provided <B>cpl_check_exe()</B> callback function looks at
+the executable permissions of the file and the permissions of its
+parent directories, and only returns <B>1</B> if the user has execute
+permission to the file. This callback function can thus be used to
+lookup or complete command names found in the directories listed in
+the user's <B>PATH</B> environment variable. The example program given
+earlier in this man page provides a demonstration of this.
+<P>
+Beware that if somebody tries to complete an empty string, your
+callback will get called once for every file in the cache, which could
+number in the thousands. If your callback does anything time
+consuming, this could result in an unacceptable delay for the user, so
+callbacks should be kept short.
+<P>
+To improve performance, whenever one of these callbacks is called, the
+choice that it makes is cached, and the next time the corresponding
+file is looked up, instead of calling the callback again, the cached
+record of whether it was accepted or rejected is used. Thus if
+somebody tries to complete an empty string, and hits tab a second time
+when nothing appears to happen, there will only be one long delay,
+since the second pass will operate entirely from the cached
+dispositions of the files. These cached dipositions are discarded
+whenever <B>pca_scan_path()</B> is called, and whenever
+<B>pca_set_check_fn()</B> is called with changed callback function or
+data arguments.
+<P>
+<A NAME="lbAK">&nbsp;</A>
+<H2>ERROR HANDLING</H2>
+
+<P>
+If <B>pca_scan_path()</B> reports that an error occurred by returning
+<B>1</B>, you can obtain a terse description of the error by calling
+<B>pca_last_error(pc)</B>. This returns an internal string containing
+an error message.
+<P>
+<PRE>
+  const char *pca_last_error(PathCache *pc);
+</PRE>
+
+<P>
+<P>
+<A NAME="lbAL">&nbsp;</A>
+<H2>CLEANING UP</H2>
+
+<P>
+Once you have finished using a <B>PathCache</B> object, you can reclaim
+its resources by passing it to the <B>del_PathCache()</B> destructor
+function. This takes a pointer to one of these objects, and always
+returns <B>NULL</B>.
+<P>
+<PRE>
+  PathCache *del_PathCache(PathCache *pc);
+</PRE>
+
+<P>
+<A NAME="lbAM">&nbsp;</A>
+<H2>THREAD SAFETY</H2>
+
+<P>
+In multi-threaded programs, you should use the <B>libtecla_r.a</B>
+version of the library. This uses POSIX reentrant functions where
+available (hence the <B>_r</B> suffix), and disables features that rely
+on non-reentrant system functions. In the case of this module, the
+only disabled feature is username completion in <B>~username/</B>
+expressions, in <B>cpl_path_completions()</B>.
+<P>
+Using the <B>libtecla_r.a</B> version of the library, it is safe to use
+the facilities of this module in multiple threads, provided that each
+thread uses a separately allocated <B>PathCache</B> object. In other
+words, if two threads want to do path searching, they should each call
+<B>new_PathCache()</B> to allocate their own caches.
+<P>
+<A NAME="lbAN">&nbsp;</A>
+<H2>FILES</H2>
+
+<PRE>
+libtecla.a    -    The tecla library
+libtecla.h    -    The tecla header file.
+</PRE>
+
+<P>
+<A NAME="lbAO">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+<PRE>
+<A HREF="libtecla.html">libtecla</A>(3), <A HREF="gl_get_line.html">gl_get_line</A>(3), <A HREF="ef_expand_file.html">ef_expand_file</A>(3),
+<A HREF="cpl_complete_word.html">cpl_complete_word</A>(3)
+</PRE>
+
+<P>
+<A NAME="lbAP">&nbsp;</A>
+<H2>AUTHOR</H2>
+
+Martin Shepherd  (<A HREF="mailto:mcs@astro.caltech.edu">mcs@astro.caltech.edu</A>)
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAE">AN EXAMPLE</A><DD>
+<DT><A HREF="#lbAF">FUNCTION DESCRIPTIONS</A><DD>
+<DT><A HREF="#lbAG">POPULATING THE CACHE</A><DD>
+<DT><A HREF="#lbAH">LOOKING UP FILES</A><DD>
+<DT><A HREF="#lbAI">FILENAME COMPLETION</A><DD>
+<DT><A HREF="#lbAJ">BEING SELECTIVE</A><DD>
+<DT><A HREF="#lbAK">ERROR HANDLING</A><DD>
+<DT><A HREF="#lbAL">CLEANING UP</A><DD>
+<DT><A HREF="#lbAM">THREAD SAFETY</A><DD>
+<DT><A HREF="#lbAN">FILES</A><DD>
+<DT><A HREF="#lbAO">SEE ALSO</A><DD>
+<DT><A HREF="#lbAP">AUTHOR</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 22:21:57 GMT, November 09, 2014
+</BODY>
+</HTML>

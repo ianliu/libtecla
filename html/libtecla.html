@@ -1,0 +1,199 @@
+Content-type: text/html
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of libtecla</TITLE>
+</HEAD><BODY>
+<H1>libtecla</H1>
+Section: C Library Functions (3)<BR><A HREF="#index">Index</A>
+<A HREF="index.html">Return to Main Contents</A><HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+libtecla - An interactive command-line input library.
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<PRE>
+gcc ... -ltecla -lcurses
+</PRE>
+
+<P>
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+The <B>tecla</B> library provides programs with interactive command
+line editing facilities, similar to those of the unix <B>tcsh</B>
+shell. In addition to simple command-line editing, it supports recall
+of previously entered command lines, TAB completion of file names or
+other tokens, and in-line wild-card expansion of filenames. The
+internal functions which perform file-name completion and wild-card
+expansion are also available externally for optional use by the
+calling program.
+<P>
+The various parts of the library are documented in the following man
+pages:
+<P>
+<PRE>
+  <A HREF="tecla.html">tecla</A>(7)              -  Use level documentation of the
+                        command-line editing facilities
+                        provided by <B>gl_get_line()</B>.
+  <A HREF="gl_get_line.html">gl_get_line</A>(3)        -  The interactive line-input module.
+  <A HREF="gl_io_mode.html">gl_io_mode</A>(3)         -  How to use <B>gl_get_line()</B> in an
+                        incremental, non-blocking fashion.
+  <A HREF="cpl_complete_word.html">cpl_complete_word</A>(3)  -  The word completion module.
+  <A HREF="ef_expand_file.html">ef_expand_file</A>(3)     -  The filename expansion module.
+  <A HREF="pca_lookup_file.html">pca_lookup_file</A>(3)    -  A directory-list based filename
+                        lookup and completion module.
+</PRE>
+
+<P>
+In addition there is one optional application distributed
+with the library:
+<P>
+<PRE>
+  <A HREF="enhance.html">enhance</A>(1)            -  Add command-line editing to third
+                           party applications.
+</PRE>
+
+<P>
+<A NAME="lbAE">&nbsp;</A>
+<H2>THREAD SAFETY</H2>
+
+<P>
+If the library is compiled with -D_POSIX_C_SOURCE=199506L, reentrant
+versions of as many functions as possible are used. This includes
+using getpwuid_r() and getpwnam_r() instead of getpwuid() and
+getpwnam() when looking up the home directories of specific users in
+the password file (for ~user/ expansion), and readdir_r() instead of
+readdir() for reading directory entries when doing filename
+completion. The reentrant version of the library is usually called
+libtecla_r.a instead of libtecla.a, so if only the latter is
+available, it probably isn't the correct version to link with
+threaded programs.
+<P>
+Reentrant functions for iterating through the password file aren't
+available, so when the library is compiled to be reentrant, TAB
+completion of incomplete usernames in <B>~username/</B> expressions is
+disabled. This doesn't disable expansion of complete <B>~username</B>
+expressions, which can be done reentrantly, or expansion of the parts
+of filenames that follow them, so this doesn't remove much
+functionality.
+<P>
+The terminfo functions setupterm(), tigetstr(), tigetnum() and tputs()
+also aren't reentrant, but very few programs will want to interact
+with multiple terminals, so this shouldn't prevent this library from
+being used in threaded programs.
+<P>
+<A NAME="lbAF">&nbsp;</A>
+<H2>LIBRARY VERSION NUMBER</H2>
+
+<P>
+The version number of the library can be queried using the following
+function.
+<P>
+<PRE>
+ void libtecla_version(int *major, int *minor, int *micro);
+</PRE>
+
+<P>
+<P>
+On return, this function records the three components of the libtecla
+version number in <B>*major</B>, <B>*minor</B>, <B>*micro</B>. The formal
+meaning of the three components is as follows.
+<P>
+<P>
+<PRE>
+ major - Incrementing this number implies that a change has
+         been made to the library's public interface, which
+         makes it binary incompatible  with programs that
+         were linked with previous shared versions of the
+         tecla library.
+
+ minor - This number is incremented by one whenever
+         additional functionality, such as new functions or
+         modules, are added to the library.
+
+ micro - This is incremented whenever modifications to the
+         library are made which make no changes to the
+         public interface, but which fix bugs and/or improve
+         the behind-the-scenes implementation.
+</PRE>
+
+<P>
+<P>
+<A NAME="lbAG">&nbsp;</A>
+<H2>TRIVIA</H2>
+
+<P>
+In Spanish, a &quot;tecla&quot; is the key of a keyboard. Since this library
+centers on keyboard input, and given that I wrote much of the library
+while working in Chile, this seemed like a suitable name.
+<P>
+<A NAME="lbAH">&nbsp;</A>
+<H2>FILES</H2>
+
+<PRE>
+libtecla.a    -   The tecla library.
+libtecla.h    -   The tecla header file.
+~/.teclarc    -   The tecla personal customization file.
+</PRE>
+
+<P>
+<A NAME="lbAI">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+<PRE>
+<A HREF="gl_get_line.html">gl_get_line</A>(3), <A HREF="tecla.html">tecla</A>(7), <A HREF="gl_io_mode.html">gl_io_mode</A>(3), <A HREF="ef_expand_file.html">ef_expand_file</A>(3),
+<A HREF="cpl_complete_word.html">cpl_complete_word</A>(3), <A HREF="pca_lookup_file.html">pca_lookup_file</A>(3), <A HREF="enhance.html">enhance</A>(1)
+</PRE>
+
+<P>
+<A NAME="lbAJ">&nbsp;</A>
+<H2>AUTHOR</H2>
+
+Martin Shepherd  (<A HREF="mailto:mcs@astro.caltech.edu">mcs@astro.caltech.edu</A>)
+<P>
+<A NAME="lbAK">&nbsp;</A>
+<H2>ACKNOWLEDGMENTS</H2>
+
+<P>
+<PRE>
+Markus Gyger  - Lots of assistance, including help with
+                shared libraries, configuration information,
+                particularly for Solaris; modifications to
+                support C++ compilers, improvements for ksh
+                users, faster cursor motion, output
+                buffering, and changes to make gl_get_line()
+                8-bit clean. 
+Mike MacFaden - Suggestions, feedback and testing that led
+                to many of the major new functions that were
+                added in version 1.4.0.
+Tim Eliseo    - Many vi-mode bindings and fixes.
+</PRE>
+
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAE">THREAD SAFETY</A><DD>
+<DT><A HREF="#lbAF">LIBRARY VERSION NUMBER</A><DD>
+<DT><A HREF="#lbAG">TRIVIA</A><DD>
+<DT><A HREF="#lbAH">FILES</A><DD>
+<DT><A HREF="#lbAI">SEE ALSO</A><DD>
+<DT><A HREF="#lbAJ">AUTHOR</A><DD>
+<DT><A HREF="#lbAK">ACKNOWLEDGMENTS</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 22:21:57 GMT, November 09, 2014
+</BODY>
+</HTML>

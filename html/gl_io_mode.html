@@ -1,0 +1,634 @@
+Content-type: text/html
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of gl_io_mode</TITLE>
+</HEAD><BODY>
+<H1>gl_io_mode</H1>
+Section: C Library Functions (3)<BR><A HREF="#index">Index</A>
+<A HREF="index.html">Return to Main Contents</A><HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+<BR>&nbsp;gl_io_mode,&nbsp;gl_raw_io,&nbsp;gl_normal_io,&nbsp;gl_tty_signals,&nbsp;gl_abandon_line,
+<BR>&nbsp;gl_handle_signal,&nbsp;gl_pending_io&nbsp;-&nbsp;How&nbsp;to&nbsp;use&nbsp;gl_get_line()&nbsp;from&nbsp;an&nbsp;external&nbsp;event&nbsp;loop.
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<PRE>
+#include &lt;<A HREF="file:///usr/include/libtecla.h">libtecla.h</A>&gt;
+
+int gl_io_mode(GetLine *gl, GlIOMode mode);
+
+int gl_raw_io(GetLine *gl);
+
+int gl_normal_io(GetLine *gl);
+
+int gl_tty_signals(void (*term_handler)(int),
+                   void (*susp_handler)(int),
+                   void (*cont_handler)(int),
+                   void (*size_handler)(int));
+
+void gl_abandon_line(GetLine *gl);
+
+void gl_handle_signal(int signo, GetLine *gl, int ngl);
+
+GlPendingIO gl_pending_io(GetLine *gl);
+
+</PRE>
+
+<P>
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+The <B>gl_get_line()</B> function, which is documented separately in
+the <B><A HREF="gl_get_line.html">gl_get_line</A>(3)</B> man page, supports two different I/O modes.
+These are selected by calling the <B>gl_io_mode()</B> function.
+<P>
+<P>
+<PRE>
+  int gl_io_mode(GetLine *gl, GlIOMode mode);
+</PRE>
+
+<P>
+<P>
+The <B>mode</B> argument of this function specifies the new I/O mode,
+and must be one of the following.
+<P>
+<P>
+<PRE>
+  GL_NORMAL_MODE   -  Select the normal blocking-I/O mode.
+                      In this mode <B>gl_get_line()</B>
+                      doesn't return until either an error
+                      occurs of the user finishes entering a
+                      new line. This mode is the focus of
+                      the <B><A HREF="gl_get_line.html">gl_get_line</A>(3)</B> man page.
+
+  GL_SERVER_MODE   -  Select non-blocking server I/O mode.
+                      In this mode, since non-blocking
+                      terminal I/O is used, the entry of
+                      each new input line typically requires
+                      many calls to <B>gl_get_line()</B> from
+                      an external I/O-driven event loop.
+                      This mode is the focus of this man
+                      page.
+</PRE>
+
+<P>
+<P>
+Newly created <B>GetLine</B> objects start in normal I/O
+mode, so to switch to non-blocking server mode requires an
+initial call to <B>gl_io_mode()</B>.
+<P>
+<A NAME="lbAE">&nbsp;</A>
+<H2>SERVER I/O MODE</H2>
+
+<P>
+In non-blocking server I/O mode, the application is required
+to have an event loop which calls <B>gl_get_line()</B>
+whenever the terminal file descriptor can do the type I/O
+that <B>gl_get_line()</B> is waiting for. To determine which
+type of I/O <B>gl_get_line()</B> is waiting for, the
+application calls the <B>gl_pending_io()</B> function.
+<P>
+<P>
+<PRE>
+  GlPendingIO gl_pending_io(GetLine *gl);
+</PRE>
+
+<P>
+<P>
+The return value of this function is one of the following two
+enumerated values.
+<P>
+<P>
+<PRE>
+  GLP_READ    -  gl_get_line() is waiting to write a
+                 character to the terminal.
+
+  GLP_WRITE   -  gl_get_line() is waiting to read a
+                 character from the keyboad.
+</PRE>
+
+<P>
+<P>
+If the application is using either the <B>select()</B> or <B>poll()</B>
+system calls to watch for I/O on a group of file descriptors, then it
+should call the <B>gl_pending_io()</B> function before each call to
+these functions to see which direction of I/O it should tell them to
+watch for, and configure their arguments accordingly. In the case of
+the <B>select()</B> system call, this means using the <B>FD_SET()</B>
+macro to add the terminal file descriptor either to the set of file
+descriptors to be watched for readability, or the set to be watched
+for writability.
+<P>
+As in normal I/O mode, the return value of <B>gl_get_line()</B> is
+either a pointer to a completed input line, or <B>NULL</B>. However,
+whereas in normal I/O mode a <B>NULL</B> return value always means that
+an error occurred, in non-blocking server mode, <B>NULL</B> is also
+returned when <B>gl_get_line()</B> can't read or write to the terminal
+without blocking. Thus in non-blocking server mode, in order to
+determine when a <B>NULL</B> return value signifies that an error
+occurred or not, it is necessary to call the <B>gl_return_status()</B>
+function. If this function returns the enumerated value,
+<B>GLR_BLOCKED</B>, as documented in the <B><A HREF="gl_get_line.html">gl_get_line</A>(3)</B> man page,
+this means that <B>gl_get_line()</B> is waiting for I/O, and no error
+has occurred.
+<P>
+When <B>gl_get_line()</B> returns <B>NULL</B> and
+<B>gl_return_status()</B> indicates that this is due to blocked
+terminal I/O, the application should call <B>gl_get_line()</B> again
+when the type of I/O reported by <B>gl_pending_io()</B> becomes
+possible. The <B>prompt</B>, <B>start_line</B> and <B>start_pos</B>
+arguments of <B>gl_get_line()</B> will be ignored on these calls.  If
+you need to change the prompt of the line that is currently being
+edited, then you can call the <B>gl_replace_prompt()</B> function
+(documented in the <B><A HREF="gl_get_line.html">gl_get_line</A>(3) man page) between calls to
+gl_get_line()</B>.
+<P>
+<A NAME="lbAF">&nbsp;</A>
+<H2>GIVING UP THE TERMINAL</H2>
+
+<P>
+A complication that is unique to non-blocking server mode is that it
+requires that the terminal be left in raw mode between calls to
+<B>gl_get_line()</B>. If this weren't the case, the external event loop
+wouldn't be able to detect individual key-presses, and the basic line
+editing implemented by the terminal driver would clash with the
+editing provided by <B>gl_get_line()</B>. What this means is that any
+time that the terminal needs to be used for other things than entering
+a new input line with <B>gl_get_line()</B>, it needs to be restored to
+a usable state. In particular, whenever the process is suspended or
+terminated, the terminal must be returned to a normal state. If this
+isn't done, then depending on the characteristics of the shell that
+was used to invoke the program, the user may end up with a hung
+terminal. To this end, the <B>gl_normal_io()</B> function is provided
+for switching the terminal back to the state that it was in when raw
+mode was last established.
+<P>
+<P>
+<PRE>
+  int gl_normal_io(GetLine *gl);
+</PRE>
+
+<P>
+<P>
+What this function does is first flush any pending output to the
+terminal, then move the cursor to the start of the terminal line which
+follows the end of the incompletely entered input line. At this point
+it is safe to suspend or terminate the process, and it is safe for the
+application to read and write to the terminal. To resume entry of the
+input line, the application should call the <B>gl_raw_io()</B>
+function.
+<P>
+<P>
+<PRE>
+  int gl_raw_io(GetLine *gl);
+</PRE>
+
+<P>
+<P>
+This function starts a new line, redisplays the partially completed
+input line (if any), restores the cursor position within this line to
+where it was when <B>gl_normal_io()</B> was called, then switches back
+to raw, non-blocking terminal mode ready to continue entry of the
+input line when <B>gl_get_line()</B> is next called.
+<P>
+Note that in non-blocking server mode, if <B>gl_get_line()</B> is
+called after a call to <B>gl_normal_io()</B>, without an intervening
+call to <B>gl_raw_io()</B>, <B>gl_get_line()</B> will call
+<B>gl_raw_mode()</B> itself, and the terminal will remain in this mode
+when <B>gl_get_line()</B> returns.
+<P>
+<A NAME="lbAG">&nbsp;</A>
+<H2>SIGNAL HANDLING</H2>
+
+<P>
+In the previous section it was pointed out that in non-blocking server
+mode, the terminal must be restored to a sane state whenever a signal
+is received that either suspends or terminates the process. In normal
+I/O mode, this is done for you by <B>gl_get_line()</B>, but in
+non-blocking server mode, since the terminal is left in raw mode
+between calls to <B>gl_get_line()</B>, this signal handling has to be
+done by the application. Since there are many signals that can suspend
+or terminate a process, as well as other signals that are important to
+<B>gl_get_line()</B>, such as the <B>SIGWINCH</B> signal, which tells it
+when the terminal size has changed, the <B>gl_tty_signals()</B>
+function is provided for installing signal handlers for all pertinent
+signals.
+<P>
+<P>
+<PRE>
+  int gl_tty_signals(void (*term_handler)(int),
+                     void (*susp_handler)(int),
+                     void (*cont_handler)(int),
+                     void (*size_handler)(int));
+</PRE>
+
+<P>
+<P>
+What this does is use <B>gl_get_line()</B>'s internal list of signals
+to assign specified signal handlers to groups of signals. The
+arguments of this function are as follows.
+<P>
+<P>
+<PRE>
+  term_handler  -  This is the signal handler that is to be
+                   used to trap signals that by default
+                   terminate any process that receives
+                   them (eg. SIGINT or SIGTERM).
+
+  susp_handler  -  This is the signal handler that is to be
+                   used to trap signals that by default
+                   suspend any process that receives them,
+                   (eg. SIGTSTP or SIGTTOU).
+
+  cont_handler  -  This is the signal handler that is to be
+                   used to trap signals that are usually
+                   sent when a process resumes after being
+                   suspended (usually SIGCONT). Beware that there is
+                   nothing to stop a user from sending one of these
+                   signals at other times.
+
+  size_handler  -  This signal handler is used to trap
+                   signals that are sent to processes when
+                   their controlling terminals are resized
+                   by the user (eg. SIGWINCH).
+</PRE>
+
+<P>
+<P>
+These arguments can all be the same, if so desired, and you can
+specify <B>SIG_IGN</B> (ignore this signal) or <B>SIG_DFL</B> (use the
+system-provided default signal handler) instead of a function where
+pertinent. In particular, it is rarely useful to trap <B>SIGCONT</B>,
+so the <B>cont_handler</B> argument will usually be <B>SIG_DFL</B> or
+<B>SIG_IGN</B>.
+<P>
+The <B>gl_tty_signals()</B> function uses the POSIX <B>sigaction()</B>
+function to install these signal handlers, and it is careful to use
+the <B>sa_mask</B> member of each sigaction structure to ensure that
+only one of these signals is ever delivered at a time. This guards
+against different instances of these signal handlers from
+simultaneously trying to write to common global data, such as a shared
+<B>sigsetjmp()</B> buffer or a signal-received flag.
+<P>
+The signal handlers that are installed by this function, should call
+the <B>gl_handle_signal().
+<P>
+<P>
+</B><PRE>
+  void gl_handle_signal(int signo, GetLine *gl, int ngl);
+</PRE>
+
+<P>
+<P>
+The <B>signo</B> argument tells this function which signal it is being
+asked to respond to, and the <B>gl</B> argument should be a pointer to
+the first element of an array of <B>ngl</B> <B>GetLine</B> objects. If
+your application only has one of these objects, just pass its pointer
+as the <B>gl</B> argument and specify <B>ngl</B> as <B>1</B>.
+<P>
+Depending on the signal that is being handled, this function does
+different things.
+<P>
+<A NAME="lbAH">&nbsp;</A>
+<H3>Terminal resize signals (SIGWINCH)</H3>
+
+<P>
+If the signal indicates that the terminal was resized, then it
+arranges for the next call to <B>gl_get_line()</B> to ask the terminal
+for its new size and redraw the input line accordingly. In order that
+<B>gl_get_line()</B> be called as soon as possible to do this,
+<B>gl_handle_signal()</B> also arranges that the next call to
+<B>gl_pending_io()</B> will return <B>GLP_WRITE</B>. Thus if the
+application waits for I/O in <B>select()</B> or <B>poll()</B>, then the
+application needs to ensure that these functions will be reliably
+aborted when a signal is caught and handled by the application. More
+on this below.
+<P>
+<A NAME="lbAI">&nbsp;</A>
+<H2>Process termination signals.</H2>
+
+<P>
+If the signal that was caught is one of those that by default
+terminates any process that receives it, then <B>gl_handle_signal()</B>
+does the following steps.
+<P>
+1. First it blocks the delivery of all signals that can be
+<BR>&nbsp;&nbsp;&nbsp;blocked&nbsp;(ie.&nbsp;<B>SIGKILL</B>&nbsp;and&nbsp;<B>SIGSTOP</B>&nbsp;can't&nbsp;be&nbsp;blocked)
+<P>
+2. Next it calls <B>gl_normal_io()</B> for each of the <B>ngl</B>
+<BR>&nbsp;&nbsp;&nbsp;<B>GetLine</B>&nbsp;objects.&nbsp;Note&nbsp;that&nbsp;this&nbsp;does&nbsp;nothing&nbsp;to&nbsp;any&nbsp;of&nbsp;the
+<BR>&nbsp;&nbsp;&nbsp;<B>GetLine</B>&nbsp;objects&nbsp;that&nbsp;aren't&nbsp;currently&nbsp;in&nbsp;raw&nbsp;mode.
+<P>
+3. Next it sets the signal handler of the signal to its default,
+<BR>&nbsp;&nbsp;&nbsp;process-termination&nbsp;disposition.
+<P>
+4. Next it re-sends the process the signal that was caught.
+<P>
+5. Finally it unblocks delivery of this signal, which
+<BR>&nbsp;&nbsp;&nbsp;results&nbsp;in&nbsp;the&nbsp;process&nbsp;being&nbsp;terminated.
+<P>
+<A NAME="lbAJ">&nbsp;</A>
+<H2>Process suspension signals.</H2>
+
+<P>
+If the default disposition of the signal is to suspend the process,
+the same steps are executed as for process termination signals, except
+that when the process is later resumed, <B>gl_handle_signal()</B>
+continues, and does the following steps.
+<P>
+6. It re-blocks delivery of the signal.
+<P>
+7. It reinstates the signal handler of the signal to the one
+<BR>&nbsp;&nbsp;&nbsp;that&nbsp;was&nbsp;displaced&nbsp;when&nbsp;its&nbsp;default&nbsp;disposition&nbsp;was&nbsp;substituted.
+<P>
+8. For any of the <B>GetLine</B> objects that were in raw mode when
+<BR>&nbsp;&nbsp;&nbsp;<B>gl_handle_signal()</B>&nbsp;was&nbsp;called,&nbsp;<B>gl_handle_signal()</B>&nbsp;then
+<BR>&nbsp;&nbsp;&nbsp;calls&nbsp;<B>gl_raw_io()</B>,&nbsp;to&nbsp;resume&nbsp;entry&nbsp;of&nbsp;the&nbsp;input&nbsp;lines&nbsp;on
+<BR>&nbsp;&nbsp;&nbsp;those&nbsp;terminals.
+<P>
+9. Finally, it restores the signal process mask to how it
+<BR>&nbsp;&nbsp;&nbsp;was&nbsp;when&nbsp;<B>gl_handle_signal()</B>&nbsp;was&nbsp;called.
+<P>
+Note that the process is suspended or terminated using the original
+signal that was caught, rather than using the uncatchable
+<B>SIGSTOP</B> and <B>SIGKILL</B> signals. This is important, because
+when a process is suspended or terminated, the parent of the process
+may wish to use the status value returned by the <B>wait()</B> system
+call to figure out which signal was responsible. In particular, most
+shells use this information to print a corresponding message to the
+terminal. Users would be rightly confused if when their process
+received a <B>SIGPIPE</B> signal, the program responded by sending
+itself a <B>SIGKILL</B> signal, and the shell then printed out the
+provocative statement, &quot;Killed!&quot;.
+<P>
+<A NAME="lbAK">&nbsp;</A>
+<H2>INTERRUPTING THE EVENT LOOP</H2>
+
+<P>
+If a signal is caught and handled when the application's event loop is
+waiting in <B>select()</B> or <B>poll()</B>, these functions will be
+aborted with <B>errno</B> set to <B>EINTR</B>. When this happens the
+event loop should call <B>gl_pending_io()</B>, before calling
+<B>select()</B> or <B>poll()</B> again. It should then arrange for
+<B>select()</B> or <B>poll()</B> to wait for the type of I/O that this
+reports. This is necessary, because any signal handler which calls
+<B>gl_handle_signal()</B>, will frequently change the type of I/O that
+<B>gl_get_line()</B> is waiting for.
+<P>
+Unfortunately, if a signal arrives between the statements which
+configure the arguments of <B>select()</B> or <B>poll()</B> and the
+calls to these functions, then the signal will not be seen by these
+functions, which will then not be aborted. If these functions are
+waiting for keyboard input from the user when the signal is received,
+and the signal handler arranges to redraw the input line to accomodate
+a terminal resize or the resumption of the process, then this
+redisplay will be end up being delayed until the user hits the next
+key. Apart from puzzling the user, this clearly isn't a serious
+problem. However there is a way, albeit complicated, to completely
+avoid this race condition. The following steps illustrate this.
+<P>
+1. Block all of the signals that <B>gl_get_line()</B> catches,
+<BR>&nbsp;&nbsp;&nbsp;by&nbsp;passing&nbsp;the&nbsp;signal&nbsp;set&nbsp;returned&nbsp;by&nbsp;<B>gl_list_signals()</B>&nbsp;to
+<BR>&nbsp;&nbsp;&nbsp;<B>sigprocmask()</B>.
+<P>
+2. Call <B>gl_pending_io()</B> and set up the arguments of
+<BR>&nbsp;&nbsp;&nbsp;<B>select()</B>&nbsp;or&nbsp;<B>poll()</B>&nbsp;accordingly.
+<P>
+3. Call <B>sigsetjmp()</B> with a non-zero <B>savesigs</B> argument.
+<P>
+4. Initially this <B>sigsetjmp()</B> statement will return zero,
+<BR>&nbsp;&nbsp;&nbsp;indicating&nbsp;that&nbsp;control&nbsp;isn't&nbsp;resuming&nbsp;there&nbsp;after&nbsp;a&nbsp;matching
+<BR>&nbsp;&nbsp;&nbsp;call&nbsp;to&nbsp;<B>siglongjmp()</B>.
+<P>
+5. Replace all of the handlers of the signals that <B>gl_get_line()</B>
+<BR>&nbsp;&nbsp;&nbsp;is&nbsp;configured&nbsp;to&nbsp;catch,&nbsp;with&nbsp;a&nbsp;signal&nbsp;handler&nbsp;that&nbsp;first&nbsp;records
+<BR>&nbsp;&nbsp;&nbsp;the&nbsp;number&nbsp;of&nbsp;the&nbsp;signal&nbsp;that&nbsp;was&nbsp;caught,&nbsp;in&nbsp;a&nbsp;file-scope&nbsp;variable,
+<BR>&nbsp;&nbsp;&nbsp;then&nbsp;calls&nbsp;<B>siglongjmp()</B>&nbsp;with&nbsp;a&nbsp;non-zero&nbsp;value&nbsp;argument,&nbsp;to
+<BR>&nbsp;&nbsp;&nbsp;return&nbsp;execution&nbsp;to&nbsp;the&nbsp;above&nbsp;<B>sigsetjmp()</B>
+<BR>&nbsp;&nbsp;&nbsp;statement.&nbsp;&nbsp;Registering&nbsp;these&nbsp;signal&nbsp;handlers&nbsp;can&nbsp;conveniently&nbsp;be
+<BR>&nbsp;&nbsp;&nbsp;done&nbsp;using&nbsp;the&nbsp;<B>gl_tty_signals()</B>&nbsp;function.
+<P>
+6. Set the file-scope variable that the above signal handler uses to
+<BR>&nbsp;&nbsp;&nbsp;record&nbsp;any&nbsp;signal&nbsp;that&nbsp;is&nbsp;caught&nbsp;to&nbsp;-1,&nbsp;so&nbsp;that&nbsp;we&nbsp;can&nbsp;check
+<BR>&nbsp;&nbsp;&nbsp;whether&nbsp;a&nbsp;signal&nbsp;was&nbsp;caught&nbsp;by&nbsp;seeing&nbsp;if&nbsp;it&nbsp;contains&nbsp;a&nbsp;valid&nbsp;signal
+<BR>&nbsp;&nbsp;&nbsp;number.
+<P>
+7. Now unblock the signals that were blocked in step 1. Any signal
+<BR>&nbsp;&nbsp;&nbsp;that&nbsp;was&nbsp;received&nbsp;by&nbsp;the&nbsp;process&nbsp;in&nbsp;between&nbsp;step&nbsp;1&nbsp;and&nbsp;now&nbsp;will
+<BR>&nbsp;&nbsp;&nbsp;now&nbsp;be&nbsp;delivered,&nbsp;and&nbsp;trigger&nbsp;our&nbsp;signal&nbsp;handler,&nbsp;as&nbsp;will&nbsp;any
+<BR>&nbsp;&nbsp;&nbsp;signal&nbsp;that&nbsp;is&nbsp;received&nbsp;until&nbsp;we&nbsp;block&nbsp;these&nbsp;signals&nbsp;again.
+<P>
+8. Now call <B>select()</B> or <B>poll()</B>.
+<P>
+9. When <B>select()</B> returns, again block the signals that were
+<BR>&nbsp;&nbsp;&nbsp;unblocked&nbsp;in&nbsp;step&nbsp;7.
+<P>
+If a signal is arrived any time during the above steps, our signal
+handler will be triggered and cause control to return to the
+<B>sigsetjmp()</B> statement, where this time, <B>sigsetjmp()</B> will
+return non-zero, indicating that a signal was caught. When this
+happens we simply skip the above block of statements, and continue
+with the following statements, which are executed regardless of
+whether or not a signal is caught. Note that when <B>sigsetjmp()</B>
+returns, regardless of why it returned, the process signal mask is
+returned to how it was when <B>sigsetjmp()</B> was called. Thus the
+following statements are always executed with all of our signals
+blocked.
+<P>
+9. Reinstate the signal handlers that were displaced in step 5.
+<P>
+10. Check wether a signal was caught, by checking the file-scope
+<BR>&nbsp;&nbsp;&nbsp;&nbsp;variable&nbsp;that&nbsp;the&nbsp;signal&nbsp;handler&nbsp;records&nbsp;signal&nbsp;numbers&nbsp;in.
+<P>
+11. If a signal was caught, send this signal to the application
+<BR>&nbsp;&nbsp;&nbsp;&nbsp;again,&nbsp;and&nbsp;unblock&nbsp;just&nbsp;this&nbsp;signal,&nbsp;so&nbsp;that&nbsp;it&nbsp;invokes&nbsp;the
+<BR>&nbsp;&nbsp;&nbsp;&nbsp;signal&nbsp;handler&nbsp;which&nbsp;we&nbsp;just&nbsp;reinstated&nbsp;in&nbsp;step&nbsp;10.
+<P>
+12. Unblock all of the signals that were blocked in step 7.
+<P>
+Since this is complicated, note that <B>demo3.c</B> includes a working
+example of how to do this. The method used there however, is more
+general than the above. What it provides is a wrapper function around
+<B>select()</B> which encompasses steps 3 to 11. In this wrapper,
+rather than use <B>gl_list_signals()</B> to figure out the signals to
+block, and and <B>gl_tty_signals()</B> to assign and revert signal
+handlers, one of its arguments is a <B>sigset_t</B> which specifies
+which signals to block and assign signal handlers to. This function
+thus doesn't depend on <B>gl_get_line()</B> and can thus be used in
+other situations where race-condition-free signal handling is
+required.
+<P>
+<A NAME="lbAL">&nbsp;</A>
+<H2>SIGNALS CAUGHT BY GL_GET_LINE</H2>
+
+<P>
+Since the application is expected to handle signals in non-blocking
+server mode, <B>gl_get_line()</B> doesn't attempt to duplicate this
+when it is being called. If one of the signals that it is configured
+to catch is sent to the application while <B>gl_get_line()</B> is being
+called, <B>gl_get_line()</B> reinstates the caller's signal handlers,
+then just before returning, re-sends the signal to the process to let
+the application's signal handler handle it. If the process isn't
+terminated by this signal, <B>gl_get_line()</B> returns <B>NULL</B>, and
+a following call to <B>gl_return_status()</B> returns the enumerated
+value <B>GLR_SIGNAL</B>.
+<P>
+<A NAME="lbAM">&nbsp;</A>
+<H2>ABORTING LINE INPUT</H2>
+
+<P>
+Often, rather than letting it terminate the process, applications
+respond to the SIGINT user-interrupt signal by aborting the current
+input line. The way to do this in non-blocking server-I/O mode is to
+not call <B>gl_handle_signal()</B> when this signal is caught, but
+instead to call the <B>gl_abandon_line()</B>.
+<P>
+<P>
+<PRE>
+  void gl_abandon_line(GetLine *gl);
+</PRE>
+
+<P>
+<P>
+This function arranges that when <B>gl_get_line()</B> is next called,
+it first flushes any pending output to the terminal, then discardes
+the current input line, outputs a new prompt on the next line, and
+finally starts accepting input of a new input line from the user.
+<P>
+<A NAME="lbAN">&nbsp;</A>
+<H2>SIGNAL SAFE FUNCTIONS</H2>
+
+<P>
+Provided that certain rules are followed, the following functions can
+have been written to be safely callable from signal handlers. Other
+functions in this library should not be called from signal handlers.
+<P>
+<P>
+<PRE>
+  gl_normal_io()
+  gl_raw_io()
+  gl_handle_signal()
+  gl_abandon_line()
+</PRE>
+
+<P>
+<P>
+In order for this to be true, all signal handlers that call these
+functions must be registered in such a way that only one instance of
+any one of them can be running at one time. The way to do this is to
+use the POSIX <B>sigaction()</B> function to register all signal
+handlers, and when doing this, use the <B>sa_mask</B> member of the
+corresponding sigaction structure, to indicate that all of the signals
+who's handlers invoke the above functions, should be blocked when the
+current signal is being handled. This prevents two signal handlers
+from operating on a <B>GetLine</B> object at the same time.
+<P>
+To prevent signal handlers from accessing a <B>GetLine</B> object while
+<B>gl_get_line()</B> or any of its associated public functions are
+operating on it, all public functions associated with
+<B>gl_get_line()</B>, including <B>gl_get_line()</B> itself, temporarily
+block the delivery of signals when they are accessing <B>GetLine</B>
+objects. Beware that the only signals that they block are the signals
+that <B>gl_get_line()</B> is currently configured to catch, so be sure
+that if you call any of the above functions from signal handlers, that
+the signals that these handlers are assigned to are configured to be
+caught by <B>gl_get_line()</B> (see <B>gl_trap_signal()</B>).
+<P>
+<A NAME="lbAO">&nbsp;</A>
+<H2>USING TIMEOUTS TO POLL</H2>
+
+<P>
+If instead of using <B>select()</B> or <B>poll()</B> to wait for I/O,
+your application just needs to get out of <B>gl_get_line()</B>
+periodically to briefly do something else before returning to accept
+input from the user, this can be done in non-blocking server mode by
+using the <B>gl_inactivity_timeout()</B> function (see
+<B><A HREF="gl_get_line.html">gl_get_line</A>(3)</B>), to specify that a callback function that
+returns <B>GLTO_CONTINUE</B> should be called whenever
+<B>gl_get_line()</B> has been waiting for I/O for more than a specified
+amount of time.
+<P>
+When this callback is triggered, <B>gl_get_line()</B> will return
+<B>NULL</B>, and a following call to <B>gl_return_status()</B> will
+return <B>GLR_BLOCKED</B>.
+<P>
+Beware that <B>gl_get_line()</B> won't return until the user
+hasn't typed a key for the specified interval, so if the
+interval is long, and the user keeps typing,
+<B>gl_get_line()</B> may not return for a while. In other
+words there is no guarantee that it will return in the time
+specified.
+<P>
+<A NAME="lbAP">&nbsp;</A>
+<H2>THE SERVER DEMO PROGRAM</H2>
+
+<P>
+The <B>demo3</B> program that is distributed with the library, provides
+a working example of how to use non-blocking server I/O mode in a real
+program. As far as the user is concerned, this program operates
+identically to the main demo program (called <B>demo</B>), except that
+whereas the main demo program uses the normal blocking I/O mode,
+<B>demo3</B> using non-blocking I/O and an external event loop. The
+source code can be found in <B>demo3.c</B>, and the comments therein
+explain the various steps.
+<P>
+<A NAME="lbAQ">&nbsp;</A>
+<H2>FILES</H2>
+
+<PRE>
+libtecla.a      -    The tecla library
+libtecla.h      -    The tecla header file.
+</PRE>
+
+<P>
+<A NAME="lbAR">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+<PRE>
+<A HREF="libtecla.html">libtecla</A>(3), <A HREF="gl_get_line.html">gl_get_line</A>(3), <A HREF="tecla.html">tecla</A>(7), <A HREF="ef_expand_file.html">ef_expand_file</A>(3),
+<A HREF="cpl_complete_word.html">cpl_complete_word</A>(3), <A HREF="pca_lookup_file.html">pca_lookup_file</A>(3)
+</PRE>
+
+<P>
+<A NAME="lbAS">&nbsp;</A>
+<H2>AUTHOR</H2>
+
+Martin Shepherd  (<A HREF="mailto:mcs@astro.caltech.edu">mcs@astro.caltech.edu</A>)
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAE">SERVER I/O MODE</A><DD>
+<DT><A HREF="#lbAF">GIVING UP THE TERMINAL</A><DD>
+<DT><A HREF="#lbAG">SIGNAL HANDLING</A><DD>
+<DL>
+<DT><A HREF="#lbAH">Terminal resize signals (SIGWINCH)</A><DD>
+</DL>
+<DT><A HREF="#lbAI">Process termination signals.</A><DD>
+<DT><A HREF="#lbAJ">Process suspension signals.</A><DD>
+<DT><A HREF="#lbAK">INTERRUPTING THE EVENT LOOP</A><DD>
+<DT><A HREF="#lbAL">SIGNALS CAUGHT BY GL_GET_LINE</A><DD>
+<DT><A HREF="#lbAM">ABORTING LINE INPUT</A><DD>
+<DT><A HREF="#lbAN">SIGNAL SAFE FUNCTIONS</A><DD>
+<DT><A HREF="#lbAO">USING TIMEOUTS TO POLL</A><DD>
+<DT><A HREF="#lbAP">THE SERVER DEMO PROGRAM</A><DD>
+<DT><A HREF="#lbAQ">FILES</A><DD>
+<DT><A HREF="#lbAR">SEE ALSO</A><DD>
+<DT><A HREF="#lbAS">AUTHOR</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 22:21:57 GMT, November 09, 2014
+</BODY>
+</HTML>

@@ -1,0 +1,105 @@
+Content-type: text/html
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of enhance</TITLE>
+</HEAD><BODY>
+<H1>enhance</H1>
+Section: User Commands  (1)<BR><A HREF="#index">Index</A>
+<A HREF="index.html">Return to Main Contents</A><HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+enhance - A program that adds command-line editing to third party programs.
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<PRE>
+enhance command [ argument ... ]
+</PRE>
+
+<P>
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+The <B>enhance</B> program provides enhanced command-line editing
+facilities to users of third party applications, to which one doesn't
+have any source code. It does this by placing a pseudo-terminal
+between the application and the real terminal. It uses the tecla
+command-line editing library to read input from the real terminal,
+then forwards each just completed input line to the application via
+the pseudo-terminal.  All output from the application is forwarded
+back unchanged to the real terminal.
+<P>
+Whenever the application stops generating output for more than a tenth
+of a second, the <B>enhance</B> program treats the latest incomplete
+output line as the prompt, and redisplays any incompleted input line
+that the user has typed after it. Note that the small delay, which is
+imperceptible to the user, isn't necessary for correct operation of
+the program. It is just an optimization, designed to stop the input
+line from being redisplayed so often that it slows down output.
+<P>
+Note that the user-level command-line editing facilities provided by
+the Tecla library are documented in the <B><A HREF="tecla.html">tecla</A>(7)</B> man page
+<P>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DEFICIENCIES</H2>
+
+<P>
+The one major problem that hasn't been solved yet, is how to deal with
+applications that change whether typed input is echo'd by their
+controlling terminal. For example, programs that ask for a password,
+such as ftp and telnet, temporarily tell their controlling terminal
+not to echo what the user types. Since this request goes to the
+application side of the psuedo terminal, the <B>enhance</B> program has
+no way of knowing that this has happened, and continues to echo typed
+input to its controlling terminal, while the user types their
+password.
+<P>
+Furthermore, before executing the host application, the <B>enhance</B>
+program initially sets the pseudo terminal to noecho mode, so that
+everything that it sends to the program doesn't get redundantly
+echoed. If a program that switches to noecho mode explicitly restores
+echoing afterwards, rather than restoring the terminal modes that were
+previously in force, then subsequently, every time that you enter a
+new input line, a duplicate copy will be displayed on the next line.
+<P>
+<A NAME="lbAF">&nbsp;</A>
+<H2>FILES</H2>
+
+<PRE>
+libtecla.a    -   The tecla library.
+~/.teclarc    -   The tecla personal customization file.
+</PRE>
+
+<P>
+<A NAME="lbAG">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<A HREF="tecla.html">tecla</A>(7), <A HREF="libtecla.html">libtecla</A>(3)
+<BR>&nbsp;&nbsp;
+<A NAME="lbAH">&nbsp;</A>
+<H2>AUTHOR</H2>
+
+Martin Shepherd  (<A HREF="mailto:mcs@astro.caltech.edu">mcs@astro.caltech.edu</A>)
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAE">DEFICIENCIES</A><DD>
+<DT><A HREF="#lbAF">FILES</A><DD>
+<DT><A HREF="#lbAG">SEE ALSO</A><DD>
+<DT><A HREF="#lbAH">AUTHOR</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 22:21:57 GMT, November 09, 2014
+</BODY>
+</HTML>

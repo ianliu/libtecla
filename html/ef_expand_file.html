@@ -1,0 +1,273 @@
+Content-type: text/html
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of ef_expand_file</TITLE>
+</HEAD><BODY>
+<H1>ef_expand_file</H1>
+Section: C Library Functions (3)<BR><A HREF="#index">Index</A>
+<A HREF="index.html">Return to Main Contents</A><HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+ef_expand_file, del_ExpandFile, ef_last_error, ef_list_expansions, new_ExpandFile - expand filenames containing ~user/$envvar and wildcard expressions
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<PRE>
+#include &lt;<A HREF="file:///usr/include/libtecla.h">libtecla.h</A>&gt;
+
+ExpandFile *new_ExpandFile(void);
+
+ExpandFile *del_ExpandFile(ExpandFile *ef);
+
+FileExpansion *ef_expand_file(ExpandFile *ef,
+                              const char *path,
+                              int pathlen);
+
+int ef_list_expansions(FileExpansion *result, FILE *fp,
+                       int term_width);
+
+const char *ef_last_error(ExpandFile *ef);
+</PRE>
+
+<P>
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+The <B>ef_expand_file()</B> function is part of the tecla library
+(see the <A HREF="libtecla.html">libtecla</A>(3) man page). It expands a specified filename,
+converting <B>~user/</B> and <B>~/</B> expressions at the start of the
+filename to the corresponding home directories, replacing
+<B>$envvar</B> with the value of the corresponding environment
+variable, and then, if there are any wildcards, matching these against
+existing filenames. Backslashes in the input filename are interpreted
+as escaping any special meanings of the characters that follow them.
+Only backslahes that are themselves preceded by backslashes are
+preserved in the expanded filename.
+<P>
+In the presence of wildcards, the returned list of filenames only
+includes the names of existing files which match the
+wildcards. Otherwise, the original filename is returned after
+expansion of tilde and dollar expressions, and the result is not
+checked against existing files. This mimics the file-globbing behavior
+of the unix <B>tcsh</B> shell.
+<P>
+The supported wildcards and their meanings are:
+<PRE>
+  *        -  Match any sequence of zero or more characters.
+  ?        -  Match any single character.
+  [chars]  -  Match any single character that appears in
+              'chars'.  If 'chars' contains an expression of
+              the form a-b, then any character between a and
+              b, including a and b, matches. The '-'
+              character looses its special meaning as a
+              range specifier when it appears at the start
+              of the sequence of characters. The ']'
+              character also looses its significance as the
+              terminator of the range expression if it
+              appears immediately after the opening '[', at
+              which point it is treated one of the
+              characters of the range. If you want both '-'
+              and ']' to be part of the range, the '-'
+              should come first and the ']' second.
+              
+  [^chars] -  The same as [chars] except that it matches any
+              single character that doesn't appear in
+              'chars'.
+</PRE>
+
+<P>
+Note that wildcards never match the initial dot in filenames that
+start with '.'. The initial '.' must be explicitly specified in the
+filename. This again mimics the globbing behavior of most unix shells,
+and its rational is based in the fact that in unix, files with names
+that start with '.' are usually hidden configuration files, which are
+not listed by default by the ls command.
+<P>
+The following is a complete example of how to use the file expansion
+function.
+<P>
+<PRE>
+  #include &lt;<A HREF="file:///usr/include/stdio.h">stdio.h</A>&gt;
+  #include &lt;<A HREF="file:///usr/include/libtecla.h">libtecla.h</A>&gt;
+
+  int main(int argc, char *argv[])
+  {
+    ExpandFile *ef;      /* The expansion resource object */
+    char *filename;      /* The filename being expanded */
+    FileExpansion *expn; /* The results of the expansion */
+    int i;
+
+    ef = new_ExpandFile();
+    if(!ef)
+      return 1;
+
+    for(arg = *(argv++); arg; arg = *(argv++)) {
+      if((expn = ef_expand_file(ef, arg, -1)) == NULL) {
+        fprintf(stderr, &quot;Error expanding %s (%s).\n&quot;, arg,
+                         ef_last_error(ef));
+      } else {
+        printf(&quot;%s matches the following files:\n&quot;, arg);
+        for(i=0; i&lt;expn-&gt;nfile; i++)
+          printf(&quot; %s\n&quot;, expn-&gt;files[i]);
+      }
+    }
+
+    ef = del_ExpandFile(ef);
+    return 0;
+  }
+</PRE>
+
+<P>
+Descriptions of the functions used above are as follows:
+<P>
+<PRE>
+  ExpandFile *new_ExpandFile(void)
+</PRE>
+
+<P>
+This function creates the resources used by the <B>ef_expand_file()</B>
+function. In particular, it maintains the memory that is used to record the
+array of matching filenames that is returned by <B>ef_expand_file()</B>. This
+array is expanded as needed, so there is no built in limit to the number of
+files that can be matched.
+<P>
+<PRE>
+  ExpandFile *del_ExpandFile(ExpandFile *ef)
+</PRE>
+
+<P>
+This function deletes the resources that were returned by a previous call to
+<B>new_ExpandFile()</B>. It always returns <B>NULL</B> (ie a deleted object). It
+does nothing if the <B>ef</B> argument is <B>NULL</B>.
+<P>
+A container of the following type is returned by <B>ef_expand_file()</B>.
+<P>
+<PRE>
+  typedef struct {
+    int exists;   /* True if the files in files[] exist */
+    int nfile;    /* The number of files in files[] */
+    char **files; /* An array of 'nfile' filenames. */
+  } FileExpansion;
+</PRE>
+
+<P>
+<PRE>
+  FileExpansion *ef_expand_file(ExpandFile *ef,
+                                const char *path,
+                                int pathlen)
+</PRE>
+
+<P>
+The <B>ef_expand_file()</B> function performs filename expansion, as documented
+at the start of this section. Its first argument is a resource object returned
+by <B>new_ExpandFile()</B>. A pointer to the start of the filename to be matched
+is passed via the <B>path</B> argument. This must be a normal <B>NUL</B>
+terminated string, but unless a length of -1 is passed in <B>pathlen</B>, only
+the first <B>pathlen</B> characters will be used in the filename expansion.  If
+the length is specified as -1, the whole of the string will be
+expanded.
+<P>
+The function returns a pointer to a container who's contents are the
+results of the expansion. If there were no wildcards in the filename,
+the <B>nfile</B> member will be 1, and the <B>exists</B> member should
+be queried if it is important to know if the expanded file currently
+exists or not. If there were wildcards, then the contained
+<B>files[]</B> array will contain the names of the <B>nfile</B> existing
+files that matched the wildcarded filename, and the <B>exists</B>
+member will have the value 1. Note that the returned container belongs
+to the specified <B>ef</B> object, and its contents will change on each
+call, so if you need to retain the results of more than one call to
+<B>ef_expand_file()</B>, you should either make a private copy of the
+returned results, or create multiple file-expansion resource objects
+via multiple calls to <B>new_ExpandFile()</B>.
+<P>
+On error, <B>NULL</B> is returned, and an explanation of the error can
+be determined by calling <B>ef_last_error(ef)</B>.
+<P>
+<PRE>
+  const char *ef_last_error(ExpandFile *ef)
+</PRE>
+
+<P>
+This function returns the message which describes the error that
+occurred on the last call to <B>ef_expand_file()</B>, for the given
+<B>(ExpandFile *ef)</B> resource object.
+<P>
+<PRE>
+  int ef_list_expansions(FileExpansion *result, FILE *fp,
+                         int terminal_width);
+</PRE>
+
+<P>
+The <B>ef_list_expansions()</B> function provides a convenient way to
+list the filename expansions returned by <B>ef_expand_file()</B>. Like
+the unix <B>ls</B> command, it arranges the filenames into equal width
+columns, each column having the width of the largest file. The number
+of columns used is thus determined by the length of the longest
+filename, and the specified terminal width. Beware that filenames that
+are longer than the specified terminal width are printed without being
+truncated, so output longer than the specified terminal width can
+occur. The list is written to the stdio stream specified by the
+<B>fp</B> argument.
+<P>
+<A NAME="lbAE">&nbsp;</A>
+<H2>THREAD SAFETY</H2>
+
+<P>
+In multi-threaded programs, you should use the <B>libtecla_r.a</B>
+version of the library. This uses POSIX reentrant functions where
+available (hence the <B>_r</B> suffix), and disables features that rely
+on non-reentrant system functions. Currently there are no features
+disabled in this module.
+<P>
+Using the <B>libtecla_r.a</B> version of the library, it is safe to use
+the facilities of this module in multiple threads, provided that each
+thread uses a separately allocated <B>ExpandFile</B> object. In other
+words, if two threads want to do file expansion, they should each call
+<B>new_ExpandFile()</B> to allocate their own file-expansion objects.
+<P>
+<A NAME="lbAF">&nbsp;</A>
+<H2>FILES</H2>
+
+<PRE>
+libtecla.a    -    The tecla library
+libtecla.h    -    The tecla header file.
+</PRE>
+
+<P>
+<A NAME="lbAG">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<PRE>
+<A HREF="libtecla.html">libtecla</A>(3), <A HREF="gl_get_line.html">gl_get_line</A>(3), <A HREF="cpl_complete_word.html">cpl_complete_word</A>(3),
+<A HREF="pca_lookup_file.html">pca_lookup_file</A>(3)
+</PRE>
+
+<P>
+<A NAME="lbAH">&nbsp;</A>
+<H2>AUTHOR</H2>
+
+Martin Shepherd  (<A HREF="mailto:mcs@astro.caltech.edu">mcs@astro.caltech.edu</A>)
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAE">THREAD SAFETY</A><DD>
+<DT><A HREF="#lbAF">FILES</A><DD>
+<DT><A HREF="#lbAG">SEE ALSO</A><DD>
+<DT><A HREF="#lbAH">AUTHOR</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 22:21:57 GMT, November 09, 2014
+</BODY>
+</HTML>
